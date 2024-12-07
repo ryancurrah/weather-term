@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.weather-term</string>
+	<string>com.weatherterm</string>
 	<key>ProgramArguments</key>
 	<array>
-      <string>{{PATH_TO_BINARY}}/bin/weather-term</string>
+      <string>{{PATH_TO_BINARY}}/bin/weatherterm</string>
 	  <string>-country</string>
 	  <string>{{OPENWEATHERMAP_COUNTRYCODE}}</string>
 	  <string>-city</string>
