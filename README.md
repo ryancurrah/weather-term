@@ -9,10 +9,10 @@ Weather in your terminal! This binary updates a `.weatherterm` file in your home
 
 # Add to startup on mac
 
-Fill out `com.weatherterm.plist` with your values
+The install subcommand will create a plist service file. You will need to load and run it.
 
 ```shell
-cp ./com.weatherterm.plist ~/Library/LaunchAgents/com.weatherterm.plist
+weatherterm run -country US -city Miami -key 0000000000000000000 -unit imperial
 
 launchctl load -w ~/Library/LaunchAgents/com.weatherterm.plist
 
@@ -35,7 +35,7 @@ function prompt_weather() {
 # Example
 
 ```shell
-weatherterm -country US -city Miami -key 0000000000000000000 -unit imperial
+weatherterm run -country US -city Miami -key 0000000000000000000 -unit imperial
 ^C
 
 cat ~/.weather

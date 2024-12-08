@@ -3,8 +3,16 @@ package main
 import (
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
+)
+
+var (
+	// ErrInvalidUnit is an error for an invalid unit.
+	ErrInvalidUnit = errors.New("invalid unit valid units are metric and imperial")
+	// ErrCityNotFound is an error for a city not found.
+	ErrCityNotFound = errors.New("city not found using country code and city name")
 )
 
 // Unit is a unit of measurement.
@@ -25,7 +33,7 @@ func GetUnit(unit string) (Unit, error) {
 	case string(UnitImperial):
 		return UnitImperial, nil
 	default:
-		return "", fmt.Errorf("invalid unit '%s': valid units are metric and imperial", unit)
+		return "", fmt.Errorf("%w: %s", ErrInvalidUnit, unit)
 	}
 }
 
@@ -44,22 +52,20 @@ const (
 	FahrenheitIcon = "°F"
 )
 
-var (
-	//go:embed public/city.list.min.json
-	citiesList []byte
-)
+//go:embed public/city.list.min.json
+var citiesList []byte
 
 // GetCity returns a city by country code and city name or an error if not found.
 func GetCity(countryCode, cityName string) (City, error) {
 	cities := Cities{}
 	err := json.Unmarshal(citiesList, &cities)
 	if err != nil {
-		return City{}, fmt.Errorf("unable to unmarshal city file: %s", err)
+		return City{}, fmt.Errorf("unable to unmarshal city file: %w", err)
 	}
 
 	city := cities.Get(countryCode, cityName)
 	if city == (City{}) {
-		return City{}, fmt.Errorf("country code '%s' and city name '%s' not found", countryCode, cityName)
+		return City{}, fmt.Errorf("%w: country code '%s' and city name '%s' not found", ErrCityNotFound, countryCode, cityName)
 	}
 
 	return city, nil
@@ -82,6 +88,7 @@ func (c Cities) Get(countryCode, cityName string) City {
 			return city
 		}
 	}
+
 	return City{}
 }
 
@@ -143,22 +150,21 @@ type WindDirections []WindDirection
 // Get returns a wind direction by degree or an empty string if not found.
 func (w WindDirections) Get(windDirDeg float32) string {
 	for _, wind := range w {
-		if wind.Degree == 0 {
-			if (windDirDeg >= wind.Degree) && (windDirDeg < wind.Degree+WindDeg) {
-				return wind.Direction
-			}
-		} else if wind.Degree == 360 {
-			if (windDirDeg <= wind.Degree) && (windDirDeg > wind.Degree-WindDeg) {
-				return wind.Direction
-			}
-		} else {
-			if (windDirDeg >= wind.Degree) && (windDirDeg < wind.Degree+WindDeg) {
-				return wind.Direction
-			} else if (windDirDeg <= wind.Degree) && (windDirDeg > wind.Degree-WindDeg) {
-				return wind.Direction
-			}
+		if isWithinRange(windDirDeg, wind.Degree) {
+			return wind.Direction
 		}
 	}
 
 	return ""
+}
+
+func isWithinRange(windDirDeg, degree float32) bool {
+	switch degree {
+	case 0:
+		return (windDirDeg >= degree) && (windDirDeg < degree+WindDeg)
+	case 360:
+		return (windDirDeg <= degree) && (windDirDeg > degree-WindDeg)
+	default:
+		return (windDirDeg >= degree && windDirDeg < degree+WindDeg) || (windDirDeg <= degree && windDirDeg > degree-WindDeg)
+	}
 }

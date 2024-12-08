@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -79,7 +81,7 @@ var openWeatherConditionIcons = map[int]string{
 	804: "☁️", // Overcast clouds
 }
 
-const openWeatherMapApiUrl = "https://api.openweathermap.org/data/2.5/weather?id=%d&units=%s&APPID=%s"
+const openWeatherMapAPIURL = "https://api.openweathermap.org/data/2.5/weather?id=%d&units=%s&APPID=%s"
 
 // OpenWeatherResp is the response from the open weather map API.
 type OpenWeatherResp struct {
@@ -100,26 +102,37 @@ type OpenWeather struct {
 	APIKey string
 }
 
+// ErrUnableToGetWeather is an error returned when unable to get weather.
+var ErrUnableToGetWeather = errors.New("unable to get weather")
+
 // Report returns a weather report for a city.
-func (o OpenWeather) Report(city City, unit Unit) (weather Weather, err error) {
-	resp, err := http.Get(fmt.Sprintf(openWeatherMapApiUrl, city.ID, unit, o.APIKey))
+func (o OpenWeather) Report(ctx context.Context, city City, unit Unit) (Weather, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf(openWeatherMapAPIURL, city.ID, unit, o.APIKey), nil)
 	if err != nil {
-		return Weather{}, fmt.Errorf("unable to get current weather: %s", err)
+		return Weather{}, fmt.Errorf("%w: %w", ErrUnableToGetWeather, err)
 	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return Weather{}, fmt.Errorf("%w: %w", ErrUnableToGetWeather, err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return Weather{}, fmt.Errorf("unable to get current weather: %s: %s", resp.Status, string(bodyBytes))
+
+		return Weather{}, fmt.Errorf("%w: %s: %s", ErrUnableToGetWeather, resp.Status, string(bodyBytes))
 	}
 
 	weatherResp := OpenWeatherResp{}
 	err = json.NewDecoder(resp.Body).Decode(&weatherResp)
-	resp.Body.Close()
 	if err != nil {
-		return Weather{}, fmt.Errorf("unable to unmarshal weather: %s", err)
+		return Weather{}, fmt.Errorf("%w: %w", ErrUnableToGetWeather, err)
 	}
 
-	weather = Weather{
+	weather := Weather{
 		Temperature: weatherResp.Main.Temp,
 		Unit:        unit,
 		Icon:        openWeatherConditionIcons[weatherResp.Weather[0].ID],
